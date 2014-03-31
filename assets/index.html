@@ -1,0 +1,30 @@
+<html>
+
+	<head>
+		<style>
+
+			body{
+				background-color: #484848;
+			}
+
+			.content {
+				width: 800px;
+				background-color: #E7E7E7;
+				margin: 0 auto;
+				padding: 10px;
+			}
+		</style>
+
+	</head>
+
+	<body>
+		<div class="content">
+			<form action="{{.UploadURL}}" method="POST" enctype="multipart/form-data">
+				Upload File: <input type="file" name="file"><br>
+				<input type="submit" name="submit" value="Submit">
+			</form>
+			Hello {{.Name}}
+		</div>
+	</body>
+
+</html>
