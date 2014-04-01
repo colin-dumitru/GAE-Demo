@@ -24,9 +24,9 @@ const ExpectedHash = "pSexrq_XQnqBOAXX3pv0k65Pj0A="
 
 type TestResult struct {
     User       string
-    Score      int
-    TimePosted time.Time
-    Hash       string
+    Score      int        `datastore:",noindex"`
+    TimePosted time.Time  
+    Hash       string     `datastore:",noindex"`
 }
 
 var indexTmpl = template.Must(template.ParseFiles("assets/index.html"))
