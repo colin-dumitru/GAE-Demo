@@ -1,10 +1,13 @@
 <html>
 
 	<head>
+		<link href='http://fonts.googleapis.com/css?family=Scada' rel='stylesheet' type='text/css'>
+
 		<style>
 
 			body{
 				background-color: #484848;
+				font-family: 'Scada', sans-serif;
 			}
 
 			.content {
@@ -13,18 +16,120 @@
 				margin: 0 auto;
 				padding: 10px;
 			}
+
+			.results {
+
+			}
+
+			.result {
+				height: 100px;
+			}
+
+			.result > h4{
+				font-size: 50px;
+				border-left: 2px solid orange;
+				padding: 5px;
+				margin: 0;
+				background-color: #565656;
+			  	color: transparent;
+			 	text-shadow: 0px 2px 3px rgba(255,255,255,0.5);
+				-webkit-background-clip: text;
+				-moz-background-clip: text;
+				background-clip: text;
+			}
+
+			.timePosted{
+				float: left;
+				font-size: 20px;
+				color: #AAA;
+			}
+
+			.hash{
+				float: right;
+				font-size: 20px;
+				color: #555;
+			}
+
+
 		</style>
+
+		<script type="text/javascript" src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+		<script type="text/javascript" src="/_ah/channel/jsapi"></script>
+
+		<script type="text/javascript" >
+			var channel_token = "{{.ChannelToken}}",
+				template;
+
+			function refreshScores() {
+				$.getJSON('/scores', function(data) {
+					$(".results").empty();
+
+					data.forEach(function(result) {
+						addResult(result);						
+					});
+				})
+			}
+
+			function addResult(result) {
+				var modified = template.replace(/#score/g, result.Score)
+					.replace(/#time/g, result.TimePosted)
+					.replace(/#hash/g, result.Hash);
+
+				$(".results").prepend(modified);
+			}
+
+			function onOpen() {
+				console.log("Socket opened");
+			}
+
+			function onError(error) {
+				console.log(error);
+			}
+
+			function onMessage(message) {
+				console.log(message);
+				addResult(JSON.parse(message.data));
+			}
+
+			$(document).ready(function() {
+				template = $("#result_temaplte").text();
+
+				var channel = new goog.appengine.Channel(channel_token),
+			    	socket = channel.open();
+
+			    socket.onopen = onOpen;
+			    socket.onmessage = onMessage;
+			    socket.onerror = onError;
+
+				refreshScores();
+			});
+		</script>
 
 	</head>
 
 	<body>
 		<div class="content">
+			<h5>Hello {{.Name}}</h5>
+
 			<form action="{{.UploadURL}}" method="POST" enctype="multipart/form-data">
 				Upload File: <input type="file" name="file"><br>
 				<input type="submit" name="submit" value="Submit">
 			</form>
-			Hello {{.Name}}
+
+			<div class='results'>
+				
+			</div>
 		</div>
 	</body>
+
+	<script type="text/text" id='result_temaplte'>
+	<div class="result">
+		<h4>#score</h4>
+
+		<div class="timePosted">#time</div>
+		<div class="hash">#hash</div>
+
+	</div>
+	</script>
 
 </html>

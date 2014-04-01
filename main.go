@@ -16,19 +16,21 @@ import (
     "appengine/blobstore"
     "appengine/datastore"
     "appengine/delay"
+    "appengine/channel"
 )
 
 const ExpectedHash = "1111"
 
 type TestResult struct {
-    Score     int
+    User       string
+    Score      int
     TimePosted time.Time
-    Hash string
+    Hash       string
 }
 
 var indexTmpl = template.Must(template.ParseFiles("assets/index.html"))
 
-var scoreFunc = delay.Func("main_queue", func(c appengine.Context, blobkey string) {
+var scoreFunc = delay.Func("main_queue", func(c appengine.Context, blobkey string, u user.User) {
 	key := appengine.BlobKey(blobkey)
 	reader := blobstore.NewReader(c, key)
 
@@ -41,12 +43,17 @@ var scoreFunc = delay.Func("main_queue", func(c appengine.Context, blobkey strin
     sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 
     result :=  TestResult {
+        User: u.Email,
     	Score: len(content),
     	TimePosted: time.Now(),
     	Hash: sha,
     }
 
+    time.Sleep(1 * time.Second)
+
     datastore.Put(c, datastore.NewIncompleteKey(c, "result", nil), &result)	
+
+    channel.SendJSON(c, u.ID, result)
 })
 
 func init() {
@@ -74,6 +81,7 @@ func auth(w http.ResponseWriter, r *http.Request) (appengine.Context, *user.User
     return c, u
 }
 
+// GET /
 func root(w http.ResponseWriter, r *http.Request) {
     c, u := auth(w, r)
 
@@ -81,27 +89,35 @@ func root(w http.ResponseWriter, r *http.Request) {
     	return
     }
 
-    uploadURL, err := blobstore.UploadURL(c, "/upload", nil)
-	if err != nil {
+    // setup upload
+    uploadURL, err := blobstore.UploadURL(c, "/upload", nil); if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
         return
 	}   
+
+    // setup channel
+    tok, err := channel.Create(c, u.ID); if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 
     tc := make(map[string]interface{})
 	tc["Name"] = u
 	tc["UploadURL"] = uploadURL
+    tc["ChannelToken"] = tok
 
-	if err := indexTmpl.Execute(w, tc);
-
-	err != nil {
+	if err := indexTmpl.Execute(w, tc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
+// GET /serve
 func serve(w http.ResponseWriter, r *http.Request) {
     blobstore.Send(w, appengine.BlobKey(r.FormValue("blobKey")))
 }
 
+// POST /upload
 func upload(w http.ResponseWriter, r *http.Request) {
     c, u := auth(w, r)
 
@@ -122,11 +138,12 @@ func upload(w http.ResponseWriter, r *http.Request) {
         return 
     }
 
-    scoreFunc.Call(c, string(file[0].BlobKey))
+    scoreFunc.Call(c, string(file[0].BlobKey), *u) 
 
     http.Redirect(w, r, "/", http.StatusFound)
 }
 
+// GET /scores
 func scores(w http.ResponseWriter, r *http.Request) {
 	c, u := auth(w, r)
 
@@ -134,7 +151,9 @@ func scores(w http.ResponseWriter, r *http.Request) {
     	return
     }
 
-    query := datastore.NewQuery("result")
+    query := datastore.NewQuery("result").
+        Filter("User =", u.Email).
+        Order("TimePosted")
 
  	var results []TestResult
     _, err := query.GetAll(c, &results); if err != nil {
