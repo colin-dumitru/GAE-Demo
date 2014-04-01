@@ -3,6 +3,7 @@ package pc_demo
 import (
 	"fmt"
 	"time"
+	"strings"
 	"net/http"
 	"io/ioutil"
 	"crypto/sha1"
@@ -19,7 +20,7 @@ import (
     "appengine/channel"
 )
 
-const ExpectedHash = "1111"
+const ExpectedHash = "pSexrq_XQnqBOAXX3pv0k65Pj0A="
 
 type TestResult struct {
     User       string
@@ -38,28 +39,73 @@ var scoreFunc = delay.Func("main_queue", func(c appengine.Context, blobkey strin
 		return
 	}
 
+	decompressed := decompress(string(content))
+
 	hasher := sha1.New()
-    hasher.Write(content)
+    hasher.Write([]byte(decompressed))
     sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+    score := 0
+
+    if sha == ExpectedHash {
+    	score = int((1.0 / float32(len(content))) * 1000000)
+    }
 
     result :=  TestResult {
         User: u.Email,
-    	Score: len(content),
+    	Score: score,
     	TimePosted: time.Now(),
     	Hash: sha,
     }
 
-    time.Sleep(1 * time.Second)
+    time.Sleep(2 * time.Second)
 
     datastore.Put(c, datastore.NewIncompleteKey(c, "result", nil), &result)	
 
     channel.SendJSON(c, u.ID, result)
 })
 
+func decompress(input string) string {
+	lines := strings.Split(input, "\n")
+	decompressed := []string{}
+
+	for _, line := range lines {
+		columns := strings.Split(line, ",")
+
+		decompressed = append(
+			decompressed,
+			expandLine(columns)...,
+		)
+	}
+
+	return strings.Join(decompressed, "\n")
+}
+
+func expandLine(columns []string) []string {
+	
+	columnValues := strings.Split(columns[0], "|")
+
+	if len(columns) == 1 {
+		return columnValues
+	}
+
+	expanded := []string{}
+	columns = columns[1:]
+
+	for _, value := range columnValues {
+		for _, child := range expandLine(columns) {
+			expanded = append(
+				expanded,
+				strings.Join([]string{value, child}, ","),
+			)
+		}
+	}
+
+	return expanded
+}
+
 func init() {
 	http.HandleFunc("/", root)
 	http.HandleFunc("/upload", upload)
-	http.HandleFunc("/serve/", serve)
 	http.HandleFunc("/scores", scores)
 }
 
@@ -105,16 +151,12 @@ func root(w http.ResponseWriter, r *http.Request) {
 	tc["Name"] = u
 	tc["UploadURL"] = uploadURL
     tc["ChannelToken"] = tok
+    tc["ExpectedHash"] = ExpectedHash    
 
 	if err := indexTmpl.Execute(w, tc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-// GET /serve
-func serve(w http.ResponseWriter, r *http.Request) {
-    blobstore.Send(w, appengine.BlobKey(r.FormValue("blobKey")))
 }
 
 // POST /upload

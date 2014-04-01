@@ -15,6 +15,7 @@
 				background-color: #E7E7E7;
 				margin: 0 auto;
 				padding: 10px;
+				box-shadow: 0 0 20px #252525;
 			}
 
 			.results {
@@ -30,7 +31,7 @@
 				border-left: 2px solid orange;
 				padding: 5px;
 				margin: 0;
-				background-color: #565656;
+				background-color: #868686;
 			  	color: transparent;
 			 	text-shadow: 0px 2px 3px rgba(255,255,255,0.5);
 				-webkit-background-clip: text;
@@ -48,6 +49,40 @@
 				float: right;
 				font-size: 20px;
 				color: #555;
+			}
+
+			.name {
+				font-size: 30px;
+				color: #555;
+
+			}
+
+			.file_upload {
+				position: relative;
+			}
+
+			.input_file{							    
+			    border: 1px solid #DDD;
+			    padding: 5px;
+			    color: #555;
+			    font-size: 20px;
+			    background-color: #EEE;
+			    border-radius: 3px;
+			}
+
+			.input_submit{
+			    position: absolute;
+
+			    top: 0;
+			    right: 0;
+			    border: none;
+			    background-color: transparent;
+			    font-size: 30px;
+			}
+
+			.goal{
+				float: right;
+				color: #DEA891
 			}
 
 
@@ -109,12 +144,14 @@
 
 	<body>
 		<div class="content">
-			<h5>Hello {{.Name}}</h5>
+			<h3>Hello <span class="name">{{.Name}}</span> <span class="goal">Goal: {{.ExpectedHash}}</span></h3>
 
-			<form action="{{.UploadURL}}" method="POST" enctype="multipart/form-data">
-				Upload File: <input type="file" name="file"><br>
-				<input type="submit" name="submit" value="Submit">
+			<form action="{{.UploadURL}}" method="POST" enctype="multipart/form-data" class="file_upload">
+				Upload File: <input type="file" name="file" class="input_file"><br>
+				<input type="submit" name="submit" value="Submit" class="input_submit">
 			</form>
+
+			<hr />
 
 			<div class='results'>
 				
