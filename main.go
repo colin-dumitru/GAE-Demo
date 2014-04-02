@@ -1,16 +1,16 @@
 package pc_demo
 
 import (
-	"fmt"
-	"time"
-	"strings"
-	"net/http"
-	"io/ioutil"
-	"crypto/sha1"
-	"encoding/base64"
-	"encoding/json"
+    "fmt"
+    "time"
+    "strings"
+    "net/http"
+    "io/ioutil"
+    "crypto/sha1"
+    "encoding/base64"
+    "encoding/json"
 
-	"text/template"
+    "text/template"
 
     "appengine"
     "appengine/user"
@@ -32,86 +32,86 @@ type TestResult struct {
 var indexTmpl = template.Must(template.ParseFiles("assets/index.html"))
 
 var scoreFunc = delay.Func("main_queue", func(c appengine.Context, blobkey string, u user.User) {
-	key := appengine.BlobKey(blobkey)
-	reader := blobstore.NewReader(c, key)
+    key := appengine.BlobKey(blobkey)
+    reader := blobstore.NewReader(c, key)
 
-	content, err := ioutil.ReadAll(reader); if err != nil {
-		return
-	}
+    content, err := ioutil.ReadAll(reader); if err != nil {
+        return
+    }
 
-	decompressed := decompress(string(content))
+    decompressed := decompress(string(content))
 
-	hasher := sha1.New()
+    hasher := sha1.New()
     hasher.Write([]byte(decompressed))
     sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
     score := 0
 
     if sha == ExpectedHash {
-    	score = int((1.0 / float32(len(content))) * 1000000)
+        score = int((1.0 / float32(len(content))) * 1000000)
     }
 
     result :=  TestResult {
         User: u.Email,
-    	Score: score,
-    	TimePosted: time.Now(),
-    	Hash: sha,
+        Score: score,
+        TimePosted: time.Now(),
+        Hash: sha,
     }
 
     time.Sleep(2 * time.Second)
 
-    datastore.Put(c, datastore.NewIncompleteKey(c, "result", nil), &result)	
+    datastore.Put(c, datastore.NewIncompleteKey(c, "result", nil), &result)    
 
     channel.SendJSON(c, u.ID, result)
 })
 
 func decompress(input string) string {
-	lines := strings.Split(input, "\n")
-	decompressed := []string{}
+    lines := strings.Split(input, "\n")
+    decompressed := []string{}
 
-	for _, line := range lines {
-		columns := strings.Split(line, ",")
+    for _, line := range lines {
+        columns := strings.Split(line, ",")
 
-		decompressed = append(
-			decompressed,
-			expandLine(columns)...,
-		)
-	}
+        decompressed = append(
+            decompressed,
+            expandLine(columns)...,
+        )
+    }
 
-	return strings.Join(decompressed, "\n")
+    return strings.Join(decompressed, "\n")
 }
 
 func expandLine(columns []string) []string {
-	
-	columnValues := strings.Split(columns[0], "|")
+    
+    columnValues := strings.Split(columns[0], "|")
 
-	if len(columns) == 1 {
-		return columnValues
-	}
+    if len(columns) == 1 {
+        return columnValues
+    }
 
-	expanded := []string{}
-	columns = columns[1:]
+    expanded := []string{}
+    columns = columns[1:]
 
-	for _, value := range columnValues {
-		for _, child := range expandLine(columns) {
-			expanded = append(
-				expanded,
-				strings.Join([]string{value, child}, ","),
-			)
-		}
-	}
+    for _, value := range columnValues {
+        for _, child := range expandLine(columns) {
+            expanded = append(
+                expanded,
+                strings.Join([]string{value, child}, ","),
+            )
+        }
+    }
 
-	return expanded
+    return expanded
 }
 
 func init() {
-	http.HandleFunc("/", root)
-	http.HandleFunc("/upload", upload)
-	http.HandleFunc("/scores", scores)
+    http.HandleFunc("/", root)
+    http.HandleFunc("/upload", upload)
+    http.HandleFunc("/scores", scores)
 }
 
 func auth(w http.ResponseWriter, r *http.Request) (appengine.Context, *user.User) {
-	c := appengine.NewContext(r)
-	u := user.Current(c)
+    c := appengine.NewContext(r)
+    u := user.Current(c)
 
     if u == nil {
         url, err := user.LoginURL(c, r.URL.String())
@@ -132,14 +132,14 @@ func root(w http.ResponseWriter, r *http.Request) {
     c, u := auth(w, r)
 
     if u == nil {
-    	return
+        return
     }
 
     // setup upload
     uploadURL, err := blobstore.UploadURL(c, "/upload", nil); if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
-	}   
+    }   
 
     // setup channel
     tok, err := channel.Create(c, u.ID); if err != nil {
@@ -148,15 +148,15 @@ func root(w http.ResponseWriter, r *http.Request) {
     }
 
     tc := make(map[string]interface{})
-	tc["Name"] = u
-	tc["UploadURL"] = uploadURL
+    tc["Name"] = u
+    tc["UploadURL"] = uploadURL
     tc["ChannelToken"] = tok
     tc["ExpectedHash"] = ExpectedHash    
 
-	if err := indexTmpl.Execute(w, tc); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+    if err := indexTmpl.Execute(w, tc); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 }
 
 // POST /upload
@@ -164,7 +164,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
     c, u := auth(w, r)
 
     if u == nil {
-    	return
+        return
     }
 
     blobs, _, err := blobstore.ParseUpload(r)
@@ -187,20 +187,20 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
 // GET /scores
 func scores(w http.ResponseWriter, r *http.Request) {
-	c, u := auth(w, r)
+    c, u := auth(w, r)
 
     if u == nil {
-    	return
+        return
     }
 
     query := datastore.NewQuery("result").
         Filter("User =", u.Email).
         Order("TimePosted")
 
- 	var results []TestResult
+     var results []TestResult
     _, err := query.GetAll(c, &results); if err != nil {
-    	http.Error(w, err.Error(), http.StatusInternalServerError)
-    	return;
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return;
     }
 
     binary, err := json.Marshal(results)
